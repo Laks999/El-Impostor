@@ -1,248 +1,285 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>El Impostor Fútbol</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #0d1117;
-      color: white;
-      text-align: center;
-      padding: 20px;
-    }
-    .card {
-      background: #161b22;
-      border-radius: 10px;
-      padding: 20px;
-      margin: 20px auto;
-      width: 320px;
-      box-shadow: 0 0 10px rgba(255,255,255,0.1);
-    }
-    button {
-      background: #1f6feb;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      margin-top: 10px;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    button:hover { background: #388bfd; }
-    input {
-      padding: 8px;
-      width: 80%;
-      border-radius: 6px;
-      border: none;
-      margin: 5px;
-    }
-    ul { list-style: none; padding: 0; }
-    li {
-      margin: 8px 0;
-      padding: 8px;
-      border-radius: 6px;
-      background: #21262d;
-      cursor: pointer;
-    }
-    li:hover { background: #30363d; }
-  </style>
-
-  <!-- Firebase -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getDatabase, ref, set, get, update, onValue } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyBB2m__o-fKBuQHbJ0jX1q78jCsGUjWRfo",
-      authDomain: "impostor-futbol-79a3e.firebaseapp.com",
-      databaseURL: "https://impostor-futbol-79a3e-default-rtdb.firebaseio.com",
-      projectId: "impostor-futbol-79a3e",
-      storageBucket: "impostor-futbol-79a3e.firebasestorage.app",
-      messagingSenderId: "444634288697",
-      appId: "1:444634288697:web:93398a6c5538df2684b3e8",
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    const jugadoresFamosos = [
-      "Lionel Messi","Cristiano Ronaldo","Pelé","Maradona","Zidane",
-      "Ronaldinho","Mbappé","Neymar","Haaland","Lewandowski",
-      "Beckham","Beckenbauer","Ronaldo Nazário","Iniesta","Xavi",
-      "Henry","Maldini","George Best","Luis Suárez","Modrić",
-      "Buffon","Salah","Ramos","Valderrama","James Rodríguez",
-      "Drogba","Rooney","Lampard","Gerrard","Casillas",
-      "Zlatan","Kaká","Pirlo","Seedorf","Roberto Carlos",
-      "Marcelo","Van Dijk","Griezmann","Cavani","Rivaldo",
-      "Eto'o","Nedvěd","Gullit","Torres","Foden",
-      "Bellingham","Enzo Fernández","Mané","Vinícius Jr","Alisson"
-    ];
-
-    function generarCodigo() {
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-    }
-
-    // 🔹 Crear sala
-    window.crearSala = async function() {
-      const codigo = generarCodigo();
-      const salaRef = ref(db, "salas/" + codigo);
-      await set(salaRef, { jugadores: {}, iniciada: false, enVotacion: false, votos: {} });
-      document.getElementById("menu").innerHTML = `
-        <div class="card">
-          <h3>Sala creada</h3>
-          <p>Código de sala: <b>${codigo}</b></p>
-          <input id="nombreJugador" placeholder="Tu nombre" />
-          <button onclick="unirseSala('${codigo}', true)">Unirme</button>
-        </div>
-      `;
-    }
-
-    // 🔹 Unirse a sala
-    window.unirseSala = async function(codigoManual = null, esCreador = false) {
-      const codigo = codigoManual || document.getElementById("codigoSala").value.trim().toUpperCase();
-      const nombre = document.getElementById("nombreJugador").value.trim();
-      if (!nombre) return alert("Ingresa un nombre");
-
-      const salaRef = ref(db, "salas/" + codigo);
-      const snapshot = await get(salaRef);
-      if (!snapshot.exists()) return alert("Sala no encontrada");
-
-      const jugadorRef = ref(db, "salas/" + codigo + "/jugadores/" + nombre);
-      await set(jugadorRef, { nombre, rol: "esperando", vivo: true });
-
-      document.getElementById("menu").innerHTML = `
-        <div class="card">
-          <h3>Sala: ${codigo}</h3>
-          <div id="estadoSala">Esperando jugadores...</div>
-          <ul id="listaJugadores"></ul>
-          ${esCreador ? `<button onclick="iniciarPartida('${codigo}')">Iniciar Partida</button>` : ""}
-        </div>
-      `;
-
-      onValue(salaRef, (snap) => {
-        const info = snap.val();
-        const jugadores = Object.values(info.jugadores || {});
-        document.getElementById("listaJugadores").innerHTML = jugadores.map(j => `<li>${j.nombre}${!j.vivo ? " 💀" : ""}</li>`).join("");
-
-        if (info.iniciada && info.jugadores[nombre]) {
-          const jugador = info.jugadores[nombre];
-          if (!info.enVotacion && jugador.rol && jugador.vivo) {
-            document.body.innerHTML = `
-              <div class="card">
-                <h2>Tu jugador: ${info.futbolista}</h2>
-                <h3>${jugador.rol === "impostor" ? "Eres el IMPOSTOR ⚠️" : "Eres inocente ⚽"}</h3>
-                <button onclick="iniciarVotacion('${codigo}')">Ir a votación</button>
-              </div>
-            `;
-          } else if (info.enVotacion) {
-            mostrarPantallaVotacion(codigo, nombre, info);
-          }
-          if (info.resultado) mostrarResultado(info.resultado);
-        }
-      });
-    }
-
-    // 🔹 Iniciar partida
-    window.iniciarPartida = async function(codigo) {
-      const salaRef = ref(db, "salas/" + codigo);
-      const snapshot = await get(salaRef);
-      const sala = snapshot.val();
-      const jugadores = Object.keys(sala.jugadores);
-      if (jugadores.length < 3) return alert("Se necesitan mínimo 3 jugadores.");
-
-      const futbolista = jugadoresFamosos[Math.floor(Math.random() * jugadoresFamosos.length)];
-      const numImpostores = jugadores.length >= 5 ? 2 : 1;
-      const impostores = [];
-
-      while (impostores.length < numImpostores) {
-        const rand = jugadores[Math.floor(Math.random() * jugadores.length)];
-        if (!impostores.includes(rand)) impostores.push(rand);
-      }
-
-      let updates = { iniciada: true, futbolista };
-      jugadores.forEach(j => {
-        updates["jugadores/" + j + "/rol"] = impostores.includes(j) ? "impostor" : "inocente";
-      });
-      await update(salaRef, updates);
-    }
-
-    // 🔹 Iniciar votación
-    window.iniciarVotacion = async function(codigo) {
-      const salaRef = ref(db, "salas/" + codigo);
-      await update(salaRef, { enVotacion: true, votos: {} });
-    }
-
-    // 🔹 Mostrar pantalla de votación
-    window.mostrarPantallaVotacion = function(codigo, nombre, info) {
-      const jugadores = Object.values(info.jugadores).filter(j => j.vivo);
-      document.body.innerHTML = `
-        <div class="card">
-          <h2>Votación</h2>
-          <p>Selecciona a quién crees que es el impostor:</p>
-          <ul>
-            ${jugadores.map(j => `<li onclick="votar('${codigo}','${nombre}','${j.nombre}')">${j.nombre}</li>`).join("")}
-          </ul>
-        </div>
-      `;
-    }
-
-    // 🔹 Registrar voto
-    window.votar = async function(codigo, votante, votado) {
-      const salaRef = ref(db, "salas/" + codigo + "/votos/" + votante);
-      await set(salaRef, votado);
-
-      const generalRef = ref(db, "salas/" + codigo);
-      const snap = await get(generalRef);
-      const info = snap.val();
-      const totalJugadores = Object.values(info.jugadores).filter(j => j.vivo).length;
-      const votosEmitidos = Object.keys(info.votos || {}).length + 1;
-
-      if (votosEmitidos >= totalJugadores) {
-        // Contar votos
-        let conteo = {};
-        Object.values(info.votos || {}).forEach(v => conteo[v] = (conteo[v] || 0) + 1);
-        conteo[votado] = (conteo[votado] || 0) + 1; // incluir este voto
-        const expulsado = Object.keys(conteo).reduce((a,b) => conteo[a] > conteo[b] ? a : b);
-
-        const jugadorExpulsado = info.jugadores[expulsado];
-        let resultado;
-        if (jugadorExpulsado.rol === "impostor") {
-          resultado = "¡Ganaron los inocentes! 🎉";
-        } else {
-          resultado = expulsado + " no era el impostor... 😬";
-          info.jugadores[expulsado].vivo = false;
-        }
-
-        await update(generalRef, { resultado, enVotacion: false, jugadores: info.jugadores });
-      } else {
-        alert("Voto registrado. Esperando a los demás...");
-      }
-    }
-
-    // 🔹 Mostrar resultado final o mensaje
-    window.mostrarResultado = function(msg) {
-      document.body.innerHTML = `
-        <div class="card">
-          <h2>${msg}</h2>
-          <button onclick="location.reload()">Volver al inicio</button>
-        </div>
-      `;
-    }
-  </script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>El Impostor Fútbol - Votación arreglada</title>
+<style>
+  body { font-family: Arial, sans-serif; background:#0d1117; color:#fff; text-align:center; padding:18px; }
+  .card { background:#161b22; border-radius:10px; padding:18px; margin:16px auto; width:320px; box-shadow:0 0 10px rgba(255,255,255,0.06); }
+  button{ background:#1f6feb; color:#fff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; }
+  button.ghost{ background:transparent; border:1px solid rgba(255,255,255,0.08); color:#cbd5e1; }
+  input{ padding:8px; width:80%; border-radius:6px; border:none; margin:6px 0; }
+  ul{ list-style:none; padding:0; margin:0; }
+  li{ background:#21262d; padding:8px; margin:8px 0; border-radius:6px; cursor:pointer; }
+  li:hover{ background:#2b3239; }
+  .small{ color:#9aa4b2; font-size:0.9rem; }
+</style>
 </head>
-
 <body>
   <div id="menu">
     <div class="card">
       <h1>⚽ El Impostor Fútbol</h1>
       <button onclick="crearSala()">Crear Sala</button>
-      <hr>
+      <hr style="border:none;height:1px;background:rgba(255,255,255,0.03);margin:10px 0;">
       <input id="codigoSala" placeholder="Código de sala" maxlength="6" />
       <input id="nombreJugador" placeholder="Tu nombre" />
       <button onclick="unirseSala()">Unirse a Sala</button>
+      <p class="small">Crea una sala y comparte el código con tus amigos.</p>
     </div>
   </div>
+
+<!-- Firebase (modulo JS) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+  import { getDatabase, ref, set, get, update, onValue } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBB2m__o-fKBuQHbJ0jX1q78jCsGUjWRfo",
+    authDomain: "impostor-futbol-79a3e.firebaseapp.com",
+    databaseURL: "https://impostor-futbol-79a3e-default-rtdb.firebaseio.com",
+    projectId: "impostor-futbol-79a3e",
+    storageBucket: "impostor-futbol-79a3e.firebasestorage.app",
+    messagingSenderId: "444634288697",
+    appId: "1:444634288697:web:93398a6c5538df2684b3e8",
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // Lista de futbolistas
+  const jugadoresFamosos = [
+    "Lionel Messi","Cristiano Ronaldo","Pelé","Diego Maradona","Zinedine Zidane",
+    "Ronaldinho","Kylian Mbappé","Neymar Jr","Erling Haaland","Robert Lewandowski",
+    "David Beckham","Franz Beckenbauer","Ronaldo Nazário","Andrés Iniesta","Xavi Hernández",
+    "Thierry Henry","Paolo Maldini","George Best","Luis Suárez","Luka Modrić",
+    "Gianluigi Buffon","Mohamed Salah","Sergio Ramos","Carlos Valderrama","James Rodríguez",
+    "Didier Drogba","Wayne Rooney","Frank Lampard","Steven Gerrard","Iker Casillas",
+    "Zlatan Ibrahimović","Kaká","Andrea Pirlo","Clarence Seedorf","Roberto Carlos",
+    "Marcelo","Virgil van Dijk","Antoine Griezmann","Edinson Cavani","Rivaldo",
+    "Samuel Eto'o","Pavel Nedvěd","Ruud Gullit","Fernando Torres","Phil Foden",
+    "Jude Bellingham","Enzo Fernández","Sadio Mané","Vinícius Jr","Alisson Becker"
+  ];
+
+  function generarCodigo() {
+    const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    return Array.from({length:6}, ()=>chars[Math.floor(Math.random()*chars.length)]).join('');
+  }
+
+  // Exponer funciones en window para que onclick="" funcione correctamente
+  window.crearSala = async function(){
+    const codigo = generarCodigo();
+    const salaRef = ref(db, "salas/" + codigo);
+    await set(salaRef, { jugadores: {}, iniciada: false, enVotacion: false, votos: {}, resultado: null, host: null });
+    // mostrar interfaz para que host se registre (nombre)
+    document.getElementById('menu').innerHTML = `
+      <div class="card">
+        <h3>Sala creada</h3>
+        <p>Código: <strong>${codigo}</strong></p>
+        <input id="nombreJugador" placeholder="Tu nombre (host)" />
+        <button onclick="unirseSala('${codigo}', true)">Unirme como host</button>
+        <p class="small">Comparte el código con tus amigos.</p>
+      </div>
+    `;
+  };
+
+  // Unirse a sala
+  // si codigoManual se pasa, lo usa; si esCreador true -> host
+  window.unirseSala = async function(codigoManual = null, esCreador = false){
+    const codigo = codigoManual || (document.getElementById('codigoSala')?.value || '').trim().toUpperCase();
+    const nombre = (document.getElementById('nombreJugador')?.value || '').trim();
+    if(!codigo) return alert('Ingresa código de sala');
+    if(!nombre) return alert('Ingresa tu nombre');
+
+    const salaRef = ref(db, "salas/" + codigo);
+    const snap = await get(salaRef);
+    if(!snap.exists()) return alert('Sala no encontrada');
+
+    // Si es host, definir host en la sala si no existe
+    if(esCreador){
+      await update(salaRef, { host: nombre });
+    }
+
+    // agregar jugador
+    await set(ref(db, `salas/${codigo}/jugadores/${nombre}`), { nombre, rol: 'esperando', vivo: true });
+
+    // mostrar pantalla de sala
+    document.getElementById('menu').innerHTML = `
+      <div class="card">
+        <h3>Sala: ${codigo}</h3>
+        <div id="estadoSala">Esperando jugadores...</div>
+        <ul id="listaJugadores"></ul>
+        <div id="botonesHost"></div>
+        <p class="small">Cuando el anfitrión inicie la partida, se asignarán los roles.</p>
+      </div>
+    `;
+
+    // escuchar cambios en la sala
+    onValue(salaRef, (s) => {
+      const info = s.val() || {};
+      const jugadores = Object.values(info.jugadores || {});
+      const listaHtml = jugadores.map(j => `<li>${escapeHtml(j.nombre)}${j.vivo===false ? " 💀" : ""}</li>`).join('');
+      document.getElementById('listaJugadores').innerHTML = listaHtml;
+      document.getElementById('estadoSala').textContent = info.iniciada ? (info.enVotacion ? 'En votación' : 'Partida iniciada') : 'Esperando jugadores';
+
+      // mostrar botones host si soy el host (comprobamos por nombre)
+      const myName = document.getElementById('nombreJugador')?.value?.trim() || nombre;
+      const isHost = info.host && info.host === myName;
+      const botonesHost = document.getElementById('botonesHost');
+      if(isHost && !info.iniciada){
+        botonesHost.innerHTML = `<button onclick="iniciarPartida('${codigo}')">Iniciar Partida</button>`;
+      } else if(isHost && info.iniciada && info.enVotacion===false){
+        botonesHost.innerHTML = `<button onclick="iniciarVotacion('${codigo}')">Iniciar votación</button>`;
+      } else {
+        botonesHost.innerHTML = '';
+      }
+
+      // Si la partida ya se inició y existe mi jugador en la lista, mostrar pantalla personal
+      const myEntry = info.jugadores?.[nombre];
+      if(info.iniciada && myEntry){
+        // Si estamos en votación -> mostrar votación
+        if(info.enVotacion){
+          // llamar a la función de votación (usando window para asegurar acceso desde aquí)
+          window.mostrarPantallaVotacion(codigo, nombre, info);
+        } else {
+          // mostrar tarjeta personal: si eres impostor NO verás el futbolista
+          if(myEntry.vivo === false){
+            document.body.innerHTML = `<div class="card"><h2>${nombre} — Eliminado 💀</h2><p class="small">Has sido expulsado/abatido.</p><button onclick="location.reload()">Salir</button></div>`;
+          } else if(myEntry.rol === 'impostor'){
+            // impostor: no mostrar futbolista
+            document.body.innerHTML = `<div class="card"><h2>Has iniciado sesión como: ${escapeHtml(nombre)}</h2><h3 style="color:#ffcc00">Eres el IMPOSTOR ⚠️</h3><p class="small">No sabes el futbolista secreto; finge que sí.</p><div style="margin-top:12px;"><button onclick="iniciarVotacion('${codigo}')">Pedir votación</button></div></div>`;
+          } else {
+            // inocente: mostrar futbolista y (si host) botón de iniciar votación
+            const futbolista = info.futbolista || '—';
+            document.body.innerHTML = `<div class="card"><h2>${escapeHtml(nombre)}</h2><h3>Jugador asignado: <strong>${escapeHtml(futbolista)}</strong></h3><p class="small">Recuerda preguntas clave y discute con el grupo.</p><div style="margin-top:12px;">${isHost ? `<button onclick="iniciarVotacion('${codigo}')">Iniciar votación</button>` : `<button onclick="alert('Pide al anfitrión que inicie la votación')">Pedir votación</button>`}</div></div>`;
+          }
+        }
+      }
+
+      // Si hay resultado final, mostrarlo
+      if(info.resultado){
+        document.body.innerHTML = `<div class="card"><h2>${escapeHtml(info.resultado)}</h2><div style="margin-top:12px;"><button onclick="location.reload()">Volver al inicio</button></div></div>`;
+      }
+    });
+  };
+
+  // Iniciar partida (host)
+  window.iniciarPartida = async function(codigo){
+    const salaRef = ref(db, "salas/" + codigo);
+    const snap = await get(salaRef);
+    const sala = snap.val();
+    if(!sala) return alert('Sala no encontrada');
+    const jugadores = Object.keys(sala.jugadores || {});
+    if(jugadores.length < 3) return alert('Se requieren al menos 3 jugadores');
+    // decidir impostores según reglas: 2 si >=5, sino 1
+    const numImpostores = jugadores.length >=5 ? 2 : 1;
+    // elegir futbolista
+    const futbolista = jugadoresFamosos[Math.floor(Math.random()*jugadoresFamosos.length)];
+    // elegir impostores aleatorios
+    const impostores = [];
+    while(impostores.length < numImpostores){
+      const r = jugadores[Math.floor(Math.random()*jugadores.length)];
+      if(!impostores.includes(r)) impostores.push(r);
+    }
+    // preparar updates
+    const updates = { iniciada: true, enVotacion: false, votos: {}, resultado: null, futbolista };
+    jugadores.forEach(j => {
+      updates[`jugadores/${j}/rol`] = impostores.includes(j) ? 'impostor' : 'inocente';
+      updates[`jugadores/${j}/vivo`] = true;
+    });
+    await update(salaRef, updates);
+  };
+
+  // Iniciar votación (host o cualquier jugador que la pida)
+  window.iniciarVotacion = async function(codigo){
+    const salaRef = ref(db, "salas/" + codigo);
+    await update(salaRef, { enVotacion: true, votos: {}, resultado: null });
+  };
+
+  // Mostrar pantalla de votación: expone lista de jugadores vivos
+  window.mostrarPantallaVotacion = function(codigo, miNombre, info){
+    // info ya tiene snapshot de la sala
+    const jugadoresVivos = Object.values(info.jugadores || {}).filter(j => j.vivo !== false).map(j => j.nombre);
+    // construir lista (usamos data attributes y eventos para evitar problemas con comillas)
+    const listItems = jugadoresVivos.map(n => `<li data-nombre="${escapeHtmlAttr(n)}">${escapeHtml(n)}</li>`).join('');
+    document.body.innerHTML = `
+      <div class="card">
+        <h2>Votación</h2>
+        <p>Haz click en el jugador que quieres expulsar:</p>
+        <ul id="listaVotacion">${listItems}</ul>
+        <p class="small">Tu voto será público y se contará cuando todos voten.</p>
+      </div>
+    `;
+    // attach listeners
+    const ul = document.getElementById('listaVotacion');
+    ul.querySelectorAll('li').forEach(li => {
+      li.addEventListener('click', async () => {
+        const votado = li.getAttribute('data-nombre');
+        await votar(codigo, miNombre, votado);
+      });
+    });
+  };
+
+  // Registrar voto y comprobar si todos votaron
+  window.votar = async function(codigo, votante, votado){
+    const votoRef = ref(db, `salas/${codigo}/votos/${votante}`);
+    await set(votoRef, votado);
+
+    // obtener sala actualizada
+    const salaRef = ref(db, `salas/${codigo}`);
+    const snap = await get(salaRef);
+    const sala = snap.val() || {};
+    const jugadoresVivos = Object.values(sala.jugadores || {}).filter(j => j.vivo !== false).map(j => j.nombre);
+    const votos = sala.votos || {};
+    const votosEmitidosCount = Object.keys(votos).length;
+
+    // si después de este voto el total de votos == jugadores vivos, contamos
+    if(votosEmitidosCount + 1 >= jugadoresVivos.length){
+      // contabilizar TODOS los votos (leer otra vez para incluir este)
+      const snap2 = await get(salaRef);
+      const sala2 = snap2.val() || {};
+      const votosFinal = sala2.votos || {};
+      // contar
+      const conteo = {};
+      for(const v of Object.values(votosFinal)){
+        conteo[v] = (conteo[v] || 0) + 1;
+      }
+      // el voto actual ya se guardó en votosFinal; elegir el expulsado (mayor número)
+      let expulsado = null;
+      let maxv = -1;
+      for(const [nombre, c] of Object.entries(conteo)){
+        if(c > maxv){ maxv = c; expulsado = nombre; }
+      }
+      // si empate, expulsado será uno de los empatados (comportamiento simple)
+      const jugadorExpulsado = sala2.jugadores?.[expulsado];
+      if(!jugadorExpulsado){
+        // seguridad
+        await update(salaRef, { enVotacion: false, resultado: 'No se pudo determinar expulsión.' });
+        return;
+      }
+      // si expulsado es impostor => inocentes ganan (si hay 1 o 2 impostores, chequeamos cuantos quedan)
+      if(jugadorExpulsado.rol === 'impostor'){
+        // marcar resultado de victoria inocentes
+        await update(salaRef, { enVotacion: false, resultado: '¡Ganaron los inocentes! 🎉' });
+      } else {
+        // expulsaron a un inocente: marcar como no vivo y seguir la partida
+        const updates = { enVotacion: false, resultado: `${expulsado} no era el impostor... 😬` };
+        updates[`jugadores/${expulsado}/vivo`] = false;
+        await update(salaRef, updates);
+      }
+    } else {
+      alert('Voto registrado. Esperando a los demás...');
+    }
+  };
+
+  // Helpers de seguridad: escapar HTML para evitar inyecciones (básico)
+  function escapeHtml(str){
+    if(!str) return '';
+    return String(str).replace(/[&<>"]/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[m]));
+  }
+  function escapeHtmlAttr(str){
+    return escapeHtml(str).replace(/'/g, '&#39;');
+  }
+
+</script>
 </body>
 </html>
