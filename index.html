@@ -17,7 +17,7 @@
       border-radius: 10px;
       padding: 20px;
       margin: 20px auto;
-      width: 300px;
+      width: 320px;
       box-shadow: 0 0 10px rgba(255,255,255,0.1);
     }
     button {
@@ -29,9 +29,7 @@
       border-radius: 8px;
       cursor: pointer;
     }
-    button:hover {
-      background: #388bfd;
-    }
+    button:hover { background: #388bfd; }
     input {
       padding: 8px;
       width: 80%;
@@ -39,12 +37,21 @@
       border: none;
       margin: 5px;
     }
+    ul { list-style: none; padding: 0; }
+    li {
+      margin: 8px 0;
+      padding: 8px;
+      border-radius: 6px;
+      background: #21262d;
+      cursor: pointer;
+    }
+    li:hover { background: #30363d; }
   </style>
 
   <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getDatabase, ref, set, get, update, onValue, push } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
+    import { getDatabase, ref, set, get, update, onValue } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBB2m__o-fKBuQHbJ0jX1q78jCsGUjWRfo",
@@ -60,29 +67,28 @@
     const db = getDatabase(app);
 
     const jugadoresFamosos = [
-      "Lionel Messi", "Cristiano Ronaldo", "Pelé", "Diego Maradona", "Zinedine Zidane",
-      "Ronaldinho", "Kylian Mbappé", "Neymar Jr", "Erling Haaland", "Robert Lewandowski",
-      "David Beckham", "Franz Beckenbauer", "Ronaldo Nazário", "Andrés Iniesta", "Xavi Hernández",
-      "Thierry Henry", "Paolo Maldini", "George Best", "Luis Suárez", "Luka Modrić",
-      "Gianluigi Buffon", "Mohamed Salah", "Sergio Ramos", "Carlos Valderrama", "James Rodríguez",
-      "Didier Drogba", "Wayne Rooney", "Frank Lampard", "Steven Gerrard", "Iker Casillas",
-      "Zlatan Ibrahimović", "Kaká", "Andrea Pirlo", "Clarence Seedorf", "Roberto Carlos",
-      "Marcelo", "Virgil van Dijk", "Antoine Griezmann", "Edinson Cavani", "Rivaldo",
-      "Samuel Eto'o", "Pavel Nedvěd", "Ruud Gullit", "Fernando Torres", "Phil Foden",
-      "Jude Bellingham", "Enzo Fernández", "Sadio Mané", "Vinícius Jr", "Alisson Becker"
+      "Lionel Messi","Cristiano Ronaldo","Pelé","Maradona","Zidane",
+      "Ronaldinho","Mbappé","Neymar","Haaland","Lewandowski",
+      "Beckham","Beckenbauer","Ronaldo Nazário","Iniesta","Xavi",
+      "Henry","Maldini","George Best","Luis Suárez","Modrić",
+      "Buffon","Salah","Ramos","Valderrama","James Rodríguez",
+      "Drogba","Rooney","Lampard","Gerrard","Casillas",
+      "Zlatan","Kaká","Pirlo","Seedorf","Roberto Carlos",
+      "Marcelo","Van Dijk","Griezmann","Cavani","Rivaldo",
+      "Eto'o","Nedvěd","Gullit","Torres","Foden",
+      "Bellingham","Enzo Fernández","Mané","Vinícius Jr","Alisson"
     ];
 
-    // Función para generar código de sala
     function generarCodigo() {
-      const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-      return Array.from({ length: 6 }, () => letras[Math.floor(Math.random() * letras.length)]).join("");
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
     }
 
-    // Crear una sala
+    // 🔹 Crear sala
     window.crearSala = async function() {
       const codigo = generarCodigo();
       const salaRef = ref(db, "salas/" + codigo);
-      await set(salaRef, { jugadores: {}, iniciada: false });
+      await set(salaRef, { jugadores: {}, iniciada: false, enVotacion: false, votos: {} });
       document.getElementById("menu").innerHTML = `
         <div class="card">
           <h3>Sala creada</h3>
@@ -93,73 +99,136 @@
       `;
     }
 
-    // Unirse a sala
+    // 🔹 Unirse a sala
     window.unirseSala = async function(codigoManual = null, esCreador = false) {
       const codigo = codigoManual || document.getElementById("codigoSala").value.trim().toUpperCase();
       const nombre = document.getElementById("nombreJugador").value.trim();
-
       if (!nombre) return alert("Ingresa un nombre");
-      if (!codigo) return alert("Ingresa un código de sala");
 
       const salaRef = ref(db, "salas/" + codigo);
       const snapshot = await get(salaRef);
       if (!snapshot.exists()) return alert("Sala no encontrada");
 
       const jugadorRef = ref(db, "salas/" + codigo + "/jugadores/" + nombre);
-      await set(jugadorRef, { nombre, rol: "esperando" });
+      await set(jugadorRef, { nombre, rol: "esperando", vivo: true });
 
       document.getElementById("menu").innerHTML = `
         <div class="card">
           <h3>Sala: ${codigo}</h3>
-          <p>Esperando jugadores...</p>
-          <div id="listaJugadores"></div>
+          <div id="estadoSala">Esperando jugadores...</div>
+          <ul id="listaJugadores"></ul>
           ${esCreador ? `<button onclick="iniciarPartida('${codigo}')">Iniciar Partida</button>` : ""}
         </div>
       `;
 
-      onValue(salaRef, (data) => {
-        const info = data.val();
-        const lista = Object.values(info.jugadores || {}).map(j => `<li>${j.nombre}</li>`).join("");
-        document.getElementById("listaJugadores").innerHTML = `<ul>${lista}</ul>`;
+      onValue(salaRef, (snap) => {
+        const info = snap.val();
+        const jugadores = Object.values(info.jugadores || {});
+        document.getElementById("listaJugadores").innerHTML = jugadores.map(j => `<li>${j.nombre}${!j.vivo ? " 💀" : ""}</li>`).join("");
 
         if (info.iniciada && info.jugadores[nombre]) {
-          const rol = info.jugadores[nombre].rol;
-          const futbolista = info.futbolista;
-          document.body.innerHTML = `
-            <div class="card">
-              <h2>Tu jugador: ${futbolista}</h2>
-              <h3>${rol === "impostor" ? "Eres el IMPOSTOR ⚠️" : "Eres un jugador normal ⚽"}</h3>
-            </div>
-          `;
+          const jugador = info.jugadores[nombre];
+          if (!info.enVotacion && jugador.rol && jugador.vivo) {
+            document.body.innerHTML = `
+              <div class="card">
+                <h2>Tu jugador: ${info.futbolista}</h2>
+                <h3>${jugador.rol === "impostor" ? "Eres el IMPOSTOR ⚠️" : "Eres inocente ⚽"}</h3>
+                <button onclick="iniciarVotacion('${codigo}')">Ir a votación</button>
+              </div>
+            `;
+          } else if (info.enVotacion) {
+            mostrarPantallaVotacion(codigo, nombre, info);
+          }
+          if (info.resultado) mostrarResultado(info.resultado);
         }
       });
     }
 
-    // Iniciar partida
+    // 🔹 Iniciar partida
     window.iniciarPartida = async function(codigo) {
       const salaRef = ref(db, "salas/" + codigo);
       const snapshot = await get(salaRef);
       const sala = snapshot.val();
       const jugadores = Object.keys(sala.jugadores);
-      if (jugadores.length < 3) return alert("Se necesitan al menos 3 jugadores.");
+      if (jugadores.length < 3) return alert("Se necesitan mínimo 3 jugadores.");
 
       const futbolista = jugadoresFamosos[Math.floor(Math.random() * jugadoresFamosos.length)];
-      let numImpostores = jugadores.length >= 5 ? 2 : 1;
-      let impostores = [];
+      const numImpostores = jugadores.length >= 5 ? 2 : 1;
+      const impostores = [];
 
       while (impostores.length < numImpostores) {
         const rand = jugadores[Math.floor(Math.random() * jugadores.length)];
         if (!impostores.includes(rand)) impostores.push(rand);
       }
 
-      let actualizacion = {};
+      let updates = { iniciada: true, futbolista };
       jugadores.forEach(j => {
-        actualizacion["jugadores/" + j + "/rol"] = impostores.includes(j) ? "impostor" : "jugador";
+        updates["jugadores/" + j + "/rol"] = impostores.includes(j) ? "impostor" : "inocente";
       });
-      actualizacion["iniciada"] = true;
-      actualizacion["futbolista"] = futbolista;
+      await update(salaRef, updates);
+    }
 
-      await update(salaRef, actualizacion);
+    // 🔹 Iniciar votación
+    window.iniciarVotacion = async function(codigo) {
+      const salaRef = ref(db, "salas/" + codigo);
+      await update(salaRef, { enVotacion: true, votos: {} });
+    }
+
+    // 🔹 Mostrar pantalla de votación
+    window.mostrarPantallaVotacion = function(codigo, nombre, info) {
+      const jugadores = Object.values(info.jugadores).filter(j => j.vivo);
+      document.body.innerHTML = `
+        <div class="card">
+          <h2>Votación</h2>
+          <p>Selecciona a quién crees que es el impostor:</p>
+          <ul>
+            ${jugadores.map(j => `<li onclick="votar('${codigo}','${nombre}','${j.nombre}')">${j.nombre}</li>`).join("")}
+          </ul>
+        </div>
+      `;
+    }
+
+    // 🔹 Registrar voto
+    window.votar = async function(codigo, votante, votado) {
+      const salaRef = ref(db, "salas/" + codigo + "/votos/" + votante);
+      await set(salaRef, votado);
+
+      const generalRef = ref(db, "salas/" + codigo);
+      const snap = await get(generalRef);
+      const info = snap.val();
+      const totalJugadores = Object.values(info.jugadores).filter(j => j.vivo).length;
+      const votosEmitidos = Object.keys(info.votos || {}).length + 1;
+
+      if (votosEmitidos >= totalJugadores) {
+        // Contar votos
+        let conteo = {};
+        Object.values(info.votos || {}).forEach(v => conteo[v] = (conteo[v] || 0) + 1);
+        conteo[votado] = (conteo[votado] || 0) + 1; // incluir este voto
+        const expulsado = Object.keys(conteo).reduce((a,b) => conteo[a] > conteo[b] ? a : b);
+
+        const jugadorExpulsado = info.jugadores[expulsado];
+        let resultado;
+        if (jugadorExpulsado.rol === "impostor") {
+          resultado = "¡Ganaron los inocentes! 🎉";
+        } else {
+          resultado = expulsado + " no era el impostor... 😬";
+          info.jugadores[expulsado].vivo = false;
+        }
+
+        await update(generalRef, { resultado, enVotacion: false, jugadores: info.jugadores });
+      } else {
+        alert("Voto registrado. Esperando a los demás...");
+      }
+    }
+
+    // 🔹 Mostrar resultado final o mensaje
+    window.mostrarResultado = function(msg) {
+      document.body.innerHTML = `
+        <div class="card">
+          <h2>${msg}</h2>
+          <button onclick="location.reload()">Volver al inicio</button>
+        </div>
+      `;
     }
   </script>
 </head>
