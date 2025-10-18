@@ -1,220 +1,179 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>El Impostor Fútbol</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #121212;
-      color: #fff;
-      text-align: center;
-      padding: 20px;
-    }
-    .hidden { display: none; }
-    button {
-      background-color: #00b894;
-      border: none;
-      color: white;
-      padding: 10px 20px;
-      margin: 10px;
-      border-radius: 10px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    button:hover { background-color: #019670; }
-    .card {
-      background-color: #222;
-      border-radius: 10px;
-      padding: 20px;
-      margin: 20px auto;
-      width: 300px;
-    }
-  </style>
-
-  <!-- Firebase -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyBB2m__o-fKBuQHbJ0jX1q78jCsGUjWRfo",
-      authDomain: "impostor-futbol-79a3e.firebaseapp.com",
-      databaseURL: "https://impostor-futbol-79a3e-default-rtdb.firebaseio.com",
-      projectId: "impostor-futbol-79a3e",
-      storageBucket: "impostor-futbol-79a3e.firebasestorage.app",
-      messagingSenderId: "444634288697",
-      appId: "1:444634288697:web:93398a6c5538df2684b3e8",
-      measurementId: "G-HBKTSZLNMN"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    // Lista de jugadores famosos (base interna)
-    const futbolistas = [
-      "Messi","Cristiano Ronaldo","Pelé","Maradona","Ronaldinho","Zidane","Neymar",
-      "Mbappé","Xavi","Iniesta","Modric","Beckham","Ronaldo Nazário","Henry","Maldini",
-      "Buffon","Casillas","Lewandowski","Salah","Benzema","Kroos","Van Dijk","Sergio Ramos",
-      "Pirlo","Kaká","Eto'o","Rooney","Hazard","Drogba","Puyol","Figo","Baggio","Zico",
-      "Cantona","George Best","Rivaldo","Batistuta","Totti","Raúl","Stoichkov","Del Piero",
-      "Shevchenko","Ozil","Lampard","Gerrard","Robben","Ribéry","Suárez","Vini Jr","Haaland","Alisson"
-    ];
-
-    // Variables de juego
-    let isHost = false;
-    let playerName = "";
-    let currentRoom = "";
-    let myIndex = 0;
-    let roles = [];
-
-    window.createRoom = async function() {
-      isHost = true;
-      currentRoom = Math.floor(100000 + Math.random() * 900000).toString();
-      document.getElementById("mainMenu").classList.add("hidden");
-      document.getElementById("gameSetup").classList.remove("hidden");
-      document.getElementById("roomCodeDisplay").innerText = "Código de sala: " + currentRoom;
-      await set(ref(db, "rooms/" + currentRoom), { players: [], started: false });
-    };
-
-    window.joinRoom = async function() {
-      const code = prompt("Ingresa el código de sala:");
-      if (!code) return;
-      const snapshot = await get(ref(db, "rooms/" + code));
-      if (!snapshot.exists()) {
-        alert("Esa sala no existe.");
-        return;
-      }
-      currentRoom = code;
-      isHost = false;
-      document.getElementById("mainMenu").classList.add("hidden");
-      document.getElementById("playerJoin").classList.remove("hidden");
-    };
-
-    window.addPlayer = async function() {
-      playerName = document.getElementById("playerName").value.trim();
-      if (!playerName) return alert("Escribe tu nombre.");
-      const roomRef = ref(db, "rooms/" + currentRoom + "/players");
-      const snapshot = await get(roomRef);
-      const players = snapshot.exists() ? snapshot.val() : [];
-      players.push(playerName);
-      await set(roomRef, players);
-      document.getElementById("playerJoin").classList.add("hidden");
-      document.getElementById("waiting").classList.remove("hidden");
-      document.getElementById("waitingCode").innerText = "Código de sala: " + currentRoom;
-    };
-
-    window.startGame = async function() {
-      const numPlayers = document.getElementById("numPlayers").value;
-      const impostorCount = document.getElementById("impostorCount").value;
-      const roomRef = ref(db, "rooms/" + currentRoom);
-      const snapshot = await get(ref(db, "rooms/" + currentRoom + "/players"));
-      const players = snapshot.exists() ? snapshot.val() : [];
-
-      if (players.length < 3) return alert("Mínimo 3 jugadores para iniciar.");
-
-      const jugador = futbolistas[Math.floor(Math.random() * futbolistas.length)];
-      let impostores = [];
-      while (impostores.length < impostorCount) {
-        let idx = Math.floor(Math.random() * players.length);
-        if (!impostores.includes(idx)) impostores.push(idx);
-      }
-
-      roles = players.map((p, i) => impostores.includes(i) ? "IMPOSTOR" : jugador);
-
-      await set(roomRef, { players, roles, started: true });
-
-      document.getElementById("gameSetup").classList.add("hidden");
-      document.getElementById("waiting").classList.remove("hidden");
-      alert("Partida iniciada.");
-    };
-
-    onValue(ref(db, "rooms"), snapshot => {
-      if (!snapshot.exists()) return;
-      const rooms = snapshot.val();
-      if (!rooms[currentRoom]) return;
-      const data = rooms[currentRoom];
-      if (data.started && roles.length === 0 && data.roles) {
-        roles = data.roles;
-        showPlayerCard(data.players);
-      }
-    });
-
-    function showPlayerCard(players) {
-      myIndex = players.indexOf(playerName);
-      if (myIndex === -1) return;
-
-      document.getElementById("waiting").classList.add("hidden");
-      document.getElementById("playerCard").classList.remove("hidden");
-
-      const cardText = roles[myIndex] === "IMPOSTOR"
-        ? "ERES EL IMPOSTOR"
-        : "Tu jugador es: " + roles[myIndex];
-
-      document.getElementById("roleText").innerText = cardText;
-
-      if (isHost) {
-        document.getElementById("nextRoundBtn").classList.remove("hidden");
-      }
-    }
-
-    window.playNextRound = async function() {
-      const snapshot = await get(ref(db, "rooms/" + currentRoom + "/players"));
-      const players = snapshot.exists() ? snapshot.val() : [];
-      const jugador = futbolistas[Math.floor(Math.random() * futbolistas.length)];
-      const impostorCount = Math.random() < 0.5 ? 1 : 2;
-      let impostores = [];
-      while (impostores.length < impostorCount) {
-        let idx = Math.floor(Math.random() * players.length);
-        if (!impostores.includes(idx)) impostores.push(idx);
-      }
-      roles = players.map((p, i) => impostores.includes(i) ? "IMPOSTOR" : jugador);
-      await set(ref(db, "rooms/" + currentRoom + "/roles"), roles);
-      alert("Nueva ronda iniciada.");
-    };
-
-    window.goToMenu = function() {
-      location.reload();
-    };
-  </script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>El Impostor Fútbol</title>
+<style>
+  body { font-family: Arial, sans-serif; background:#0d1117; color:#fff; text-align:center; padding:18px; }
+  .card { background:#161b22; border-radius:10px; padding:18px; margin:16px auto; width:320px; box-shadow:0 0 10px rgba(255,255,255,0.06); }
+  button{ background:#1f6feb; color:#fff; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; margin-top:8px; }
+  button.ghost{ background:transparent; border:1px solid rgba(255,255,255,0.08); color:#cbd5e1; }
+  input{ padding:8px; width:80%; border-radius:6px; border:none; margin:6px 0; }
+  ul{ list-style:none; padding:0; margin:0; }
+  li{ background:#21262d; padding:8px; margin:8px 0; border-radius:6px; cursor:pointer; }
+  li:hover{ background:#2b3239; }
+  .small{ color:#9aa4b2; font-size:0.9rem; }
+</style>
 </head>
 <body>
-  <div id="mainMenu">
-    <h1>⚽ El Impostor Fútbol</h1>
-    <button onclick="createRoom()">Crear Sala</button>
-    <button onclick="joinRoom()">Unirse a Sala</button>
-  </div>
-
-  <div id="gameSetup" class="hidden">
-    <h2 id="roomCodeDisplay"></h2>
-    <label>Número de jugadores: </label>
-    <input type="number" id="numPlayers" min="3" max="15" value="3"><br>
-    <label>Cantidad de impostores: </label>
-    <input type="number" id="impostorCount" min="1" max="2" value="1"><br>
-    <button onclick="startGame()">Iniciar Partida</button>
-    <button onclick="goToMenu()">Salir al menú</button>
-  </div>
-
-  <div id="playerJoin" class="hidden">
-    <h2>Unirse a Sala</h2>
-    <input id="playerName" placeholder="Tu nombre" /><br>
-    <button onclick="addPlayer()">Unirse</button>
-    <button onclick="goToMenu()">Salir al menú</button>
-  </div>
-
-  <div id="waiting" class="hidden">
-    <h2>Esperando a que inicie la partida...</h2>
-    <p id="waitingCode"></p>
-    <button onclick="goToMenu()">Salir al menú</button>
-  </div>
-
-  <div id="playerCard" class="hidden">
+  <div id="menu">
     <div class="card">
-      <h2 id="roleText"></h2>
+      <h1>⚽ El Impostor Fútbol</h1>
+      <button id="btnCrear">Crear Sala</button>
+      <hr style="border:none;height:1px;background:rgba(255,255,255,0.03);margin:10px 0;">
+      <input id="codigoSala" placeholder="Código de sala" maxlength="6" />
+      <input id="nombreJugador" placeholder="Tu nombre" />
+      <button id="btnUnirse">Unirse a Sala</button>
+      <p class="small">Crea una sala y comparte el código con tus amigos.</p>
     </div>
-    <button id="nextRoundBtn" class="hidden" onclick="playNextRound()">Jugar otra ronda</button>
-    <button onclick="goToMenu()">Salir al menú principal</button>
   </div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+  import { getDatabase, ref, set, get, update, onValue } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBB2m__o-fKBuQHbJ0jX1q78jCsGUjWRfo",
+    authDomain: "impostor-futbol-79a3e.firebaseapp.com",
+    databaseURL: "https://impostor-futbol-79a3e-default-rtdb.firebaseio.com",
+    projectId: "impostor-futbol-79a3e",
+    storageBucket: "impostor-futbol-79a3e.firebasestorage.app",
+    messagingSenderId: "444634288697",
+    appId: "1:444634288697:web:93398a6c5538df2684b3e8",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  const jugadoresFamosos = [
+    "Lionel Messi","Cristiano Ronaldo","Pelé","Diego Maradona","Zinedine Zidane","Ronaldinho",
+    "Kylian Mbappé","Neymar Jr","Erling Haaland","Robert Lewandowski","David Beckham","Ronaldo Nazário",
+    "Andrés Iniesta","Xavi Hernández","Thierry Henry","Paolo Maldini","George Best","Luis Suárez",
+    "Luka Modrić","Gianluigi Buffon","Mohamed Salah","Sergio Ramos","James Rodríguez","Didier Drogba",
+    "Wayne Rooney","Frank Lampard","Iker Casillas","Zlatan Ibrahimović","Kaká","Pirlo","Roberto Carlos"
+  ];
+
+  const btnCrear = document.getElementById("btnCrear");
+  const btnUnirse = document.getElementById("btnUnirse");
+
+  btnCrear.onclick = crearSala;
+  btnUnirse.onclick = () => unirseSala();
+
+  function generarCodigo() {
+    const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    return Array.from({length:6}, ()=>chars[Math.floor(Math.random()*chars.length)]).join('');
+  }
+
+  async function crearSala(){
+    const codigo = generarCodigo();
+    const salaRef = ref(db, "salas/" + codigo);
+    await set(salaRef, { jugadores: {}, iniciada: false, host: null });
+    document.getElementById('menu').innerHTML = `
+      <div class="card">
+        <h3>Sala creada</h3>
+        <p>Código: <strong>${codigo}</strong></p>
+        <input id="nombreJugador" placeholder="Tu nombre (host)" />
+        <button id="btnUnirmeHost">Unirme como host</button>
+      </div>`;
+    document.getElementById('btnUnirmeHost').onclick = () => unirseSala(codigo, true);
+  }
+
+  async function unirseSala(codigoManual = null, esHost = false){
+    const codigo = codigoManual || document.getElementById('codigoSala').value.trim().toUpperCase();
+    const nombre = document.getElementById('nombreJugador').value.trim();
+    if(!codigo || !nombre) return alert("Faltan datos");
+
+    const salaRef = ref(db, "salas/" + codigo);
+    const snap = await get(salaRef);
+    if(!snap.exists()) return alert("Sala no encontrada");
+
+    if(esHost) await update(salaRef, { host: nombre });
+
+    await set(ref(db, `salas/${codigo}/jugadores/${nombre}`), { nombre, rol: 'esperando' });
+
+    document.getElementById('menu').innerHTML = `
+      <div class="card">
+        <h3>Sala: ${codigo}</h3>
+        <div id="estadoSala">Esperando jugadores...</div>
+        <ul id="listaJugadores"></ul>
+        <div id="botonesHost"></div>
+      </div>`;
+
+    onValue(salaRef, (s) => actualizarSala(s, codigo, nombre));
+  }
+
+  async function iniciarPartida(codigo){
+    const salaRef = ref(db, "salas/" + codigo);
+    const snap = await get(salaRef);
+    const sala = snap.val();
+    const jugadores = Object.keys(sala.jugadores);
+    if(jugadores.length < 3) return alert("Mínimo 3 jugadores");
+
+    asignarRoles(jugadores, codigo);
+  }
+
+  async function jugarOtraRonda(codigo){
+    const salaRef = ref(db, "salas/" + codigo);
+    const snap = await get(salaRef);
+    const sala = snap.val();
+    const jugadores = Object.keys(sala.jugadores);
+    asignarRoles(jugadores, codigo, true);
+  }
+
+  async function asignarRoles(jugadores, codigo, siguienteRonda=false){
+    const salaRef = ref(db, "salas/" + codigo);
+    const impostores = [];
+    const numImp = jugadores.length >= 5 ? 2 : 1;
+    while(impostores.length < numImp){
+      const elegido = jugadores[Math.floor(Math.random()*jugadores.length)];
+      if(!impostores.includes(elegido)) impostores.push(elegido);
+    }
+    const futbolista = jugadoresFamosos[Math.floor(Math.random()*jugadoresFamosos.length)];
+    const updates = { iniciada:true, futbolista };
+    jugadores.forEach(j => {
+      updates[`jugadores/${j}/rol`] = impostores.includes(j)? "impostor":"inocente";
+    });
+    await update(salaRef, updates);
+    if(siguienteRonda) alert("Nueva ronda iniciada ⚽");
+  }
+
+  function actualizarSala(s, codigo, miNombre){
+    const sala = s.val();
+    const jugadores = Object.values(sala.jugadores||{});
+    const estado = document.getElementById("estadoSala");
+    if(estado) estado.textContent = sala.iniciada ? "Partida iniciada" : "Esperando...";
+
+    const lista = document.getElementById("listaJugadores");
+    if(lista) lista.innerHTML = jugadores.map(j=>`<li>${j.nombre}</li>`).join("");
+
+    const isHost = sala.host === miNombre;
+    const btns = document.getElementById("botonesHost");
+    if(btns){
+      btns.innerHTML = "";
+      if(isHost && !sala.iniciada){
+        const b = document.createElement("button");
+        b.textContent="Iniciar Partida";
+        b.onclick=()=>iniciarPartida(codigo);
+        btns.appendChild(b);
+      }
+    }
+
+    const yo = sala.jugadores[miNombre];
+    if(sala.iniciada && yo){
+      document.body.innerHTML = `
+        <div class="card">
+          <h2>${miNombre}</h2>
+          <h3>${yo.rol==="impostor" ? "Eres el IMPOSTOR ⚠️" : "Jugador: "+sala.futbolista}</h3>
+          ${isHost ? `<button id="btnRonda">Jugar otra ronda</button>` : ""}
+          <button onclick="location.reload()">Salir al menú principal</button>
+        </div>`;
+      if(isHost){
+        document.getElementById("btnRonda").onclick=()=>jugarOtraRonda(codigo);
+      }
+    }
+  }
+
+</script>
 </body>
 </html>
