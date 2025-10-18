@@ -1,213 +1,179 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>El Impostor — Versión Fútbol</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>El Impostor Fútbol</title>
   <style>
-    :root{
-      --bg:#0f1724; --card:#0b1220; --accent:#eab308; --muted:#9aa4b2; --glass: rgba(255,255,255,0.03);
-      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    body {
+      font-family: Arial, sans-serif;
+      background: #0d1117;
+      color: white;
+      text-align: center;
+      padding: 20px;
     }
-    body{
-      margin:0; background: linear-gradient(180deg,#071021 0%, #071827 60%); color:#e6eef6;
-      display:flex; align-items:flex-start; justify-content:center; min-height:100vh; padding:32px;
+    .card {
+      background: #161b22;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px auto;
+      width: 300px;
+      box-shadow: 0 0 10px rgba(255,255,255,0.1);
     }
-    .container{ width:100%; max-width:900px; }
-    header{ margin-bottom:20px; }
-    h1{ margin:0; font-size:1.6rem; color:var(--accent); }
-    p.lead{ margin:0; color:var(--muted); }
-
-    .card{ background:var(--card); border-radius:12px; padding:20px; box-shadow: 0 6px 18px rgba(2,6,23,0.6); margin-bottom:20px; }
-    label{ display:block; font-size:0.9rem; margin-bottom:6px; color:var(--muted); }
-    input, select{ width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.04); background:var(--glass); color:inherit; }
-    .row{ display:flex; gap:8px; align-items:center; margin-bottom:10px; }
-    .btn{ background:var(--accent); color:#071021; padding:10px 14px; border-radius:8px; border:none; cursor:pointer; font-weight:700; }
-    .btn.ghost{ background:transparent; color:var(--muted); border:1px solid rgba(255,255,255,0.03); }
-    .notice{ padding:10px; border-radius:8px; background:rgba(234,179,8,0.12); color:var(--accent); margin-bottom:10px; }
-    .small{ font-size:0.85rem; color:var(--muted); }
-    .center{ text-align:center; }
+    button {
+      background: #1f6feb;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin-top: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #388bfd;
+    }
+    input {
+      padding: 8px;
+      width: 80%;
+      border-radius: 6px;
+      border: none;
+      margin: 5px;
+    }
   </style>
-</head>
-<body>
-  <div class="container">
-    <header>
-      <h1>El Impostor — Versión Fútbol</h1>
-      <p class="lead">Cada jugador recibe el mismo futbolista famoso, excepto el impostor.</p>
-    </header>
 
-    <!-- Configuración inicial -->
-    <div class="card" id="setupCard">
-      <div class="notice"><strong>Reglas:</strong> mínimo 3 jugadores. Para 2 impostores, mínimo 5 jugadores.</div>
-      <label for="numPlayers">Número de jugadores</label>
-      <input id="numPlayers" type="number" min="3" value="3" />
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getDatabase, ref, set, get, update, onValue, push } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
 
-      <div style="margin-top:10px;">
-        <label>Impostores</label>
-        <div class="row">
-          <label><input id="oneImpostor" type="radio" name="impostores" checked /> 1 impostor</label>
-          <label><input id="twoImpostors" type="radio" name="impostores" /> 2 impostores</label>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBB2m__o-fKBuQHbJ0jX1q78jCsGUjWRfo",
+      authDomain: "impostor-futbol-79a3e.firebaseapp.com",
+      databaseURL: "https://impostor-futbol-79a3e-default-rtdb.firebaseio.com",
+      projectId: "impostor-futbol-79a3e",
+      storageBucket: "impostor-futbol-79a3e.firebasestorage.app",
+      messagingSenderId: "444634288697",
+      appId: "1:444634288697:web:93398a6c5538df2684b3e8",
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const jugadoresFamosos = [
+      "Lionel Messi", "Cristiano Ronaldo", "Pelé", "Diego Maradona", "Zinedine Zidane",
+      "Ronaldinho", "Kylian Mbappé", "Neymar Jr", "Erling Haaland", "Robert Lewandowski",
+      "David Beckham", "Franz Beckenbauer", "Ronaldo Nazário", "Andrés Iniesta", "Xavi Hernández",
+      "Thierry Henry", "Paolo Maldini", "George Best", "Luis Suárez", "Luka Modrić",
+      "Gianluigi Buffon", "Mohamed Salah", "Sergio Ramos", "Carlos Valderrama", "James Rodríguez",
+      "Didier Drogba", "Wayne Rooney", "Frank Lampard", "Steven Gerrard", "Iker Casillas",
+      "Zlatan Ibrahimović", "Kaká", "Andrea Pirlo", "Clarence Seedorf", "Roberto Carlos",
+      "Marcelo", "Virgil van Dijk", "Antoine Griezmann", "Edinson Cavani", "Rivaldo",
+      "Samuel Eto'o", "Pavel Nedvěd", "Ruud Gullit", "Fernando Torres", "Phil Foden",
+      "Jude Bellingham", "Enzo Fernández", "Sadio Mané", "Vinícius Jr", "Alisson Becker"
+    ];
+
+    // Función para generar código de sala
+    function generarCodigo() {
+      const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      return Array.from({ length: 6 }, () => letras[Math.floor(Math.random() * letras.length)]).join("");
+    }
+
+    // Crear una sala
+    window.crearSala = async function() {
+      const codigo = generarCodigo();
+      const salaRef = ref(db, "salas/" + codigo);
+      await set(salaRef, { jugadores: {}, iniciada: false });
+      document.getElementById("menu").innerHTML = `
+        <div class="card">
+          <h3>Sala creada</h3>
+          <p>Código de sala: <b>${codigo}</b></p>
+          <input id="nombreJugador" placeholder="Tu nombre" />
+          <button onclick="unirseSala('${codigo}', true)">Unirme</button>
         </div>
-        <div class="small">Recuerda: con 2 impostores se necesitan al menos 5 jugadores.</div>
-      </div>
+      `;
+    }
 
-      <div style="margin-top:14px;" class="row">
-        <button id="continueBtn" class="btn">Continuar</button>
-      </div>
-    </div>
+    // Unirse a sala
+    window.unirseSala = async function(codigoManual = null, esCreador = false) {
+      const codigo = codigoManual || document.getElementById("codigoSala").value.trim().toUpperCase();
+      const nombre = document.getElementById("nombreJugador").value.trim();
 
-    <!-- Ingreso de nombres -->
-    <div class="card" id="nameCard" style="display:none;">
-      <h3>Ingresa los nombres de los jugadores</h3>
-      <div id="nameFields"></div>
-      <button id="startGameBtn" class="btn">Comenzar partida</button>
-    </div>
+      if (!nombre) return alert("Ingresa un nombre");
+      if (!codigo) return alert("Ingresa un código de sala");
 
-    <!-- Pantalla de juego -->
-    <div class="card center" id="gameCard" style="display:none;">
-      <h2 id="playerTitle"></h2>
-      <h3 id="assignmentText" style="margin:20px 0; font-size:1.3rem;"></h3>
-      <button id="nextBtn" class="btn">Siguiente jugador</button>
-    </div>
+      const salaRef = ref(db, "salas/" + codigo);
+      const snapshot = await get(salaRef);
+      if (!snapshot.exists()) return alert("Sala no encontrada");
 
-    <!-- Final -->
-    <div class="card center" id="endCard" style="display:none;">
-      <h2>¡Todos listos! ⚽</h2>
-      <p>Que comience el juego 🔥</p>
-      <div class="row center" style="justify-content:center; gap:10px;">
-        <button class="btn" id="playAgainBtn">Volver a jugar</button>
-        <button class="btn ghost" id="newSessionBtn">Nueva sesión</button>
-      </div>
+      const jugadorRef = ref(db, "salas/" + codigo + "/jugadores/" + nombre);
+      await set(jugadorRef, { nombre, rol: "esperando" });
+
+      document.getElementById("menu").innerHTML = `
+        <div class="card">
+          <h3>Sala: ${codigo}</h3>
+          <p>Esperando jugadores...</p>
+          <div id="listaJugadores"></div>
+          ${esCreador ? `<button onclick="iniciarPartida('${codigo}')">Iniciar Partida</button>` : ""}
+        </div>
+      `;
+
+      onValue(salaRef, (data) => {
+        const info = data.val();
+        const lista = Object.values(info.jugadores || {}).map(j => `<li>${j.nombre}</li>`).join("");
+        document.getElementById("listaJugadores").innerHTML = `<ul>${lista}</ul>`;
+
+        if (info.iniciada && info.jugadores[nombre]) {
+          const rol = info.jugadores[nombre].rol;
+          const futbolista = info.futbolista;
+          document.body.innerHTML = `
+            <div class="card">
+              <h2>Tu jugador: ${futbolista}</h2>
+              <h3>${rol === "impostor" ? "Eres el IMPOSTOR ⚠️" : "Eres un jugador normal ⚽"}</h3>
+            </div>
+          `;
+        }
+      });
+    }
+
+    // Iniciar partida
+    window.iniciarPartida = async function(codigo) {
+      const salaRef = ref(db, "salas/" + codigo);
+      const snapshot = await get(salaRef);
+      const sala = snapshot.val();
+      const jugadores = Object.keys(sala.jugadores);
+      if (jugadores.length < 3) return alert("Se necesitan al menos 3 jugadores.");
+
+      const futbolista = jugadoresFamosos[Math.floor(Math.random() * jugadoresFamosos.length)];
+      let numImpostores = jugadores.length >= 5 ? 2 : 1;
+      let impostores = [];
+
+      while (impostores.length < numImpostores) {
+        const rand = jugadores[Math.floor(Math.random() * jugadores.length)];
+        if (!impostores.includes(rand)) impostores.push(rand);
+      }
+
+      let actualizacion = {};
+      jugadores.forEach(j => {
+        actualizacion["jugadores/" + j + "/rol"] = impostores.includes(j) ? "impostor" : "jugador";
+      });
+      actualizacion["iniciada"] = true;
+      actualizacion["futbolista"] = futbolista;
+
+      await update(salaRef, actualizacion);
+    }
+  </script>
+</head>
+
+<body>
+  <div id="menu">
+    <div class="card">
+      <h1>⚽ El Impostor Fútbol</h1>
+      <button onclick="crearSala()">Crear Sala</button>
+      <hr>
+      <input id="codigoSala" placeholder="Código de sala" maxlength="6" />
+      <input id="nombreJugador" placeholder="Tu nombre" />
+      <button onclick="unirseSala()">Unirse a Sala</button>
     </div>
   </div>
-
-  <script>
-    const PLAYERS_DB = [
-  // 🏆 LEYENDAS (10)
-  "Pelé","Diego Maradona","Zinedine Zidane","Ronaldinho","Ronaldo Nazário",
-  "Johan Cruyff","Franz Beckenbauer","Paolo Maldini","Alfredo Di Stéfano","George Best",
-
-  // ⚽ ACTUALES (40)
-  "Lionel Messi","Cristiano Ronaldo","Kylian Mbappé","Erling Haaland","Neymar Jr",
-  "Kevin De Bruyne","Luka Modrić","Harry Kane","Vinícius Jr","Jude Bellingham",
-  "Mohamed Salah","Robert Lewandowski","Antoine Griezmann","Bruno Fernandes","Virgil van Dijk",
-  "Thibaut Courtois","Marc-André ter Stegen","Rodri Hernández","Phil Foden","Bukayo Saka",
-  "Declan Rice","Federico Valverde","Lautaro Martínez","Paulo Dybala","Marcus Rashford",
-  "Pedri","Gavi","João Félix","Bernardo Silva","Ousmane Dembélé",
-  "Achraf Hakimi","Jamal Musiala","Alphonso Davies","Khvicha Kvaratskhelia","Rafael Leão",
-  "Casemiro","Son Heung-min","Emiliano Martínez","Enzo Fernández","Josko Gvardiol"
-];
-
-    const setupCard = document.getElementById('setupCard');
-    const nameCard = document.getElementById('nameCard');
-    const gameCard = document.getElementById('gameCard');
-    const endCard = document.getElementById('endCard');
-
-    const numPlayersInput = document.getElementById('numPlayers');
-    const oneImpostor = document.getElementById('oneImpostor');
-    const twoImpostors = document.getElementById('twoImpostors');
-    const nameFields = document.getElementById('nameFields');
-    const continueBtn = document.getElementById('continueBtn');
-    const startGameBtn = document.getElementById('startGameBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    const playerTitle = document.getElementById('playerTitle');
-    const assignmentText = document.getElementById('assignmentText');
-    const playAgainBtn = document.getElementById('playAgainBtn');
-    const newSessionBtn = document.getElementById('newSessionBtn');
-
-    let numPlayers = 0;
-    let impostorCount = 1;
-    let playerNames = [];
-    let assignments = [];
-    let currentPlayer = 0;
-
-    continueBtn.onclick = () => {
-      numPlayers = parseInt(numPlayersInput.value);
-      if (numPlayers < 3) {
-        alert("Debe haber al menos 3 jugadores.");
-        return;
-      }
-      impostorCount = twoImpostors.checked ? 2 : 1;
-      if (impostorCount === 2 && numPlayers < 5) {
-        alert("Para 2 impostores se necesitan al menos 5 jugadores.");
-        return;
-      }
-      setupCard.style.display = "none";
-      nameCard.style.display = "block";
-      nameFields.innerHTML = "";
-      for (let i = 0; i < numPlayers; i++) {
-        nameFields.innerHTML += `<input id="name${i}" placeholder="Jugador ${i + 1}" type="text" style="margin-bottom:8px;">`;
-      }
-    };
-
-    startGameBtn.onclick = () => {
-      playerNames = [];
-      for (let i = 0; i < numPlayers; i++) {
-        const name = document.getElementById(`name${i}`).value.trim();
-        if (!name) {
-          alert("Todos los nombres deben completarse.");
-          return;
-        }
-        playerNames.push(name);
-      }
-      iniciarPartida();
-    };
-
-    function iniciarPartida() {
-      const chosenPlayer = PLAYERS_DB[Math.floor(Math.random() * PLAYERS_DB.length)];
-      let impostorIndexes = [];
-      while (impostorIndexes.length < impostorCount) {
-        let rand = Math.floor(Math.random() * numPlayers);
-        if (!impostorIndexes.includes(rand)) impostorIndexes.push(rand);
-      }
-
-      assignments = playerNames.map((_, i) =>
-        impostorIndexes.includes(i) ? "IMPOSTOR" : chosenPlayer
-      );
-
-      currentPlayer = 0;
-      nameCard.style.display = "none";
-      setupCard.style.display = "none";
-      endCard.style.display = "none";
-      gameCard.style.display = "block";
-      showCard();
-    }
-
-    function showCard() {
-      playerTitle.textContent = playerNames[currentPlayer];
-      assignmentText.textContent = "Presiona para ver tu rol";
-      nextBtn.textContent = "Ver";
-      let revealed = false;
-
-      nextBtn.onclick = () => {
-        if (!revealed) {
-          assignmentText.textContent = assignments[currentPlayer];
-          nextBtn.textContent = currentPlayer === numPlayers - 1 ? "Finalizar" : "Siguiente jugador";
-          revealed = true;
-        } else {
-          currentPlayer++;
-          if (currentPlayer < numPlayers) {
-            showCard();
-          } else {
-            gameCard.style.display = "none";
-            endCard.style.display = "block";
-          }
-        }
-      };
-    }
-
-    playAgainBtn.onclick = () => {
-      iniciarPartida(); // nueva ronda con mismos jugadores
-    };
-
-    newSessionBtn.onclick = () => {
-      endCard.style.display = "none";
-      setupCard.style.display = "block";
-      numPlayersInput.value = 3;
-      oneImpostor.checked = true;
-      twoImpostors.checked = false;
-      playerNames = [];
-    };
-  </script>
 </body>
 </html>
