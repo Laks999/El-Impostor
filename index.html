@@ -33,7 +33,7 @@
   <div class="container">
     <header>
       <h1>El Impostor — Versión Fútbol</h1>
-      <p class="lead">¿Podrán descubrir quien es el impostor?</p>
+      <p class="lead">Cada jugador recibe el mismo futbolista famoso, excepto el impostor.</p>
     </header>
 
     <!-- Configuración inicial -->
@@ -74,7 +74,10 @@
     <div class="card center" id="endCard" style="display:none;">
       <h2>¡Todos listos! ⚽</h2>
       <p>Que comience el juego 🔥</p>
-      <button class="btn" id="restartBtn">Volver a jugar</button>
+      <div class="row center" style="justify-content:center; gap:10px;">
+        <button class="btn" id="playAgainBtn">Volver a jugar</button>
+        <button class="btn ghost" id="newSessionBtn">Nueva sesión</button>
+      </div>
     </div>
   </div>
 
@@ -101,7 +104,8 @@
     const nextBtn = document.getElementById('nextBtn');
     const playerTitle = document.getElementById('playerTitle');
     const assignmentText = document.getElementById('assignmentText');
-    const restartBtn = document.getElementById('restartBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+    const newSessionBtn = document.getElementById('newSessionBtn');
 
     let numPlayers = 0;
     let impostorCount = 1;
@@ -138,27 +142,28 @@
         }
         playerNames.push(name);
       }
+      iniciarPartida();
+    };
 
-      // Elegir un solo futbolista para todos
+    function iniciarPartida() {
       const chosenPlayer = PLAYERS_DB[Math.floor(Math.random() * PLAYERS_DB.length)];
-
-      // Seleccionar impostores al azar
       let impostorIndexes = [];
       while (impostorIndexes.length < impostorCount) {
         let rand = Math.floor(Math.random() * numPlayers);
         if (!impostorIndexes.includes(rand)) impostorIndexes.push(rand);
       }
 
-      // Asignaciones: todos el mismo jugador excepto impostores
       assignments = playerNames.map((_, i) =>
         impostorIndexes.includes(i) ? "IMPOSTOR" : chosenPlayer
       );
 
       currentPlayer = 0;
       nameCard.style.display = "none";
+      setupCard.style.display = "none";
+      endCard.style.display = "none";
       gameCard.style.display = "block";
       showCard();
-    };
+    }
 
     function showCard() {
       playerTitle.textContent = playerNames[currentPlayer];
@@ -183,12 +188,17 @@
       };
     }
 
-    restartBtn.onclick = () => {
+    playAgainBtn.onclick = () => {
+      iniciarPartida(); // nueva ronda con mismos jugadores
+    };
+
+    newSessionBtn.onclick = () => {
       endCard.style.display = "none";
       setupCard.style.display = "block";
       numPlayersInput.value = 3;
       oneImpostor.checked = true;
       twoImpostors.checked = false;
+      playerNames = [];
     };
   </script>
 </body>
